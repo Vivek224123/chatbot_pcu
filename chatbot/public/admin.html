@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot Admin Panel</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+
+    /* ─── Login ─── */
+    .login-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: #075e54;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+
+    .login-box {
+      background: #fff; padding: 40px; border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      width: 100%; max-width: 400px;
+    }
+
+    .login-box h1 { text-align: center; margin-bottom: 8px; color: #075e54; }
+    .login-box p { text-align: center; margin-bottom: 24px; color: #888; font-size: 14px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #555; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: 14px; outline: none; transition: border 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: #075e54;
+    }
+    .form-group textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+
+    .btn {
+      padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 14px; font-weight: 600; transition: all 0.2s;
+    }
+    .btn-primary { background: #075e54; color: #fff; }
+    .btn-primary:hover { background: #128c7e; }
+    .btn-danger { background: #dc3545; color: #fff; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-secondary { background: #6c757d; color: #fff; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #28a745; color: #fff; }
+    .btn-success:hover { background: #218838; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn-block { width: 100%; }
+
+    .login-error { color: #dc3545; text-align: center; margin-top: 12px; font-size: 13px; display: none; }
+
+    /* ─── Layout ─── */
+    .app { display: none; }
+
+    .sidebar {
+      position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
+      background: #075e54; color: #fff; padding: 20px 0; overflow-y: auto;
+    }
+
+    .sidebar-header { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+    .sidebar-header h2 { font-size: 18px; }
+    .sidebar-header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+    .sidebar-nav { margin-top: 12px; }
+    .sidebar-nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px; color: rgba(255,255,255,0.8);
+      text-decoration: none; font-size: 14px; transition: all 0.2s;
+    }
+    .sidebar-nav a:hover, .sidebar-nav a.active {
+      background: rgba(255,255,255,0.12); color: #fff;
+    }
+    .sidebar-nav a .icon { font-size: 18px; width: 24px; text-align: center; }
+
+    .sidebar-footer {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.15);
+    }
+    .sidebar-footer .user-info { font-size: 13px; margin-bottom: 8px; }
+    .sidebar-footer .user-info span { opacity: 0.7; }
+
+    .main { margin-left: 240px; padding: 24px; min-height: 100vh; }
+
+    .page-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 24px;
+    }
+    .page-header h1 { font-size: 24px; }
+
+    /* ─── Cards ─── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .stat-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; color: #075e54; }
+    .stat-card .label { font-size: 13px; color: #888; margin-top: 4px; }
+
+    /* ─── Table ─── */
+    .card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    table th, table td {
+      padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px;
+    }
+    table th { font-weight: 600; color: #555; background: #f8f9fa; position: sticky; top: 0; }
+    table tr:hover { background: #f8f9fa; }
+
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-green { background: #d4edda; color: #155724; }
+    .badge-red { background: #f8d7da; color: #721c24; }
+    .badge-blue { background: #cce5ff; color: #004085; }
+    .badge-yellow { background: #fff3cd; color: #856404; }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); z-index: 999;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: #fff; border-radius: 12px; padding: 28px;
+      width: 95%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+    }
+    .modal h2 { margin-bottom: 20px; font-size: 20px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ─── Options Builder ─── */
+    .options-list { margin-top: 8px; }
+    .option-row {
+      display: flex; gap: 8px; align-items: center; margin-bottom: 8px;
+    }
+    .option-row input { flex: 1; padding: 8px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 13px; }
+
+    .text-truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .table-scroll { max-height: 65vh; overflow-y: auto; }
+
+    .hidden { display: none !important; }
+
+    .toast {
+      position: fixed; top: 20px; right: 20px; padding: 12px 20px;
+      background: #28a745; color: #fff; border-radius: 8px; z-index: 2000;
+      font-size: 14px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .toast.error { background: #dc3545; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Login -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h1>Chatbot Admin</h1>
+      <p>Sign in to manage your bot</p>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="loginUsername" placeholder="Enter username" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="login()">Sign In</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div class="app" id="app">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2> Chatbot</h2>
+        <p>Admin Panel</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" onclick="showPage('dashboard')" class="active" data-page="dashboard">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a href="#" onclick="showPage('bot-flows')" data-page="bot-flows">
+          <span class="icon">🔀</span> Bot Flows
+        </a>
+        <a href="#" onclick="showPage('languages')" data-page="languages">
+          <span class="icon">🌐</span> Languages
+        </a>
+        <a href="#" onclick="showPage('bot-users')" data-page="bot-users">
+          <span class="icon">👥</span> Bot Users
+        </a>
+        <a href="#" onclick="showPage('admin-users')" data-page="admin-users">
+          <span class="icon">🔑</span> Admin Users
+        </a>
+        <a href="#" onclick="showPage('messages')" data-page="messages">
+          <span class="icon">💬</span> Messages
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <strong id="currentUserName"></strong><br>
+          <span id="currentUserRole"></span>
+        </div>
+        <button class="btn btn-sm btn-secondary btn-block" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- Dashboard -->
+      <div class="page" id="page-dashboard">
+        <div class="page-header"><h1>Dashboard</h1></div>
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <!-- Bot Flows -->
+      <div class="page hidden" id="page-bot-flows">
+        <div class="page-header">
+          <h1>Bot Flows</h1>
+          <button class="btn btn-primary" onclick="openFlowModal()">+ Add Flow</button>
+        </div>
+        <div class="card">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th><th>Level</th><th>Step</th><th>Language</th>
+                  <th>Message</th><th>Type</th><th>Options</th><th>File</th><th>Active</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="flowsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Languages -->
+      <div class="page hidden" id="page-languages">
+        <div class="page-header">
+          <h1>Languages</h1>
+          <button class="btn btn-primary" onclick="openLangModal()">+ Add Language</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Native Name</th><th>Active</th><th>Actions</th></tr></thead>
+            <tbody id="langsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bot Users -->
+      <div class="page hidden" id="page-bot-users">
+        <div class="page-header"><h1>Bot Users</h1></div>
+        <div class="card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Phone/Session</th><th>Language</th><th>Current Level</th><th>Step</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="botUsersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Users -->
+      <div class="page hidden" id="page-admin-users">
+        <div class="page-header">
+          <h1>Admin Users</h1>
+          <button class="btn btn-primary" onclick="openAdminUserModal()">+ Add User</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Active</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody id="adminUsersTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="page hidden" id="page-messages">
+        <div class="page-header"><h1>Messages</h1></div>
+        <div class="card">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Phone</th><th>Direction</th><th>Content</th><th>Channel</th><th>Time</th></tr></thead>
+              <tbody id="messagesTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bot Flow Modal -->
+  <div class="modal-overlay" id="flowModal">
+    <div class="modal">
+      <h2 id="flowModalTitle">Add Bot Flow</h2>
+      <input type="hidden" id="flowId">
+      <div class="form-group">
+        <label>Level *</label>
+        <input type="text" id="flowLevel" placeholder="e.g. main_menu, driving_licence">
+      </div>
+      <div class="form-group">
+        <label>Step</label>
+        <input type="text" id="flowStep" value="start" placeholder="start">
+      </div>
+      <div class="form-group">
+        <label>Language Code *</label>
+        <select id="flowLang"></select>
+      </div>
+      <div class="form-group">
+        <label>Message Text *</label>
+        <textarea id="flowMessage" placeholder="The message to send to the user"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Message Type</label>
+        <select id="flowType">
+          <option value="text">Text</option>
+          <option value="interactive_list">Interactive List</option>
+          <option value="interactive_button">Interactive Button</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Options (for interactive types)</label>
+        <div class="options-list" id="optionsList"></div>
+        <button class="btn btn-sm btn-secondary" onclick="addOptionRow()" style="margin-top:6px">+ Add Option</button>
+      </div>
+      <div class="form-group">
+        <label>Attached File (PDF/Document)</label>
+        <div id="currentFileDisplay" style="margin-bottom:8px; display:none;">
+          <span class="badge badge-blue" id="currentFileName"></span>
+          <button class="btn btn-sm btn-danger" onclick="removeFlowFile()" style="margin-left:6px">✕ Remove</button>
+        </div>
+        <input type="file" id="flowFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="font-size:13px;">
+        <input type="hidden" id="flowFileUrl">
+        <div style="font-size:11px; color:#888; margin-top:4px;">Max 10MB. Supported: PDF, DOC, DOCX, JPG, PNG</div>
+      </div>
+      <div class="form-group">
+        <label>Next Level (auto-navigate)</label>
+        <input type="text" id="flowNextLevel" placeholder="e.g. main_menu">
+      </div>
+      <div class="form-group">
+        <label>Next Step</label>
+        <input type="text" id="flowNextStep" placeholder="start">
+      </div>
+      <div class="form-group">
+        <label>Parent Option ID</label>
+        <input type="text" id="flowParentOption" placeholder="Optional parent option ID">
+      </div>
+      <div class="form-group">
+        <label>Active</label>
+        <select id="flowActive"><option value="1">Yes</option><option value="0">No</option></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('flowModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveFlow()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Language Modal -->
+  <div class="modal-overlay" id="langModal">
+    <div class="modal">
+      <h2 id="langModalTitle">Add Language</h2>
+      <input type="hidden" id="langId">
+      <div class="form-group">
+        <label>Code *</label>
+        <input type="text" id="langCode" placeholder="e.g. en, hi, ta">
+      </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" id="langName" placeholder="e.g. English">
+      </div>
+      <div class="form-group">
+        <label>Native Name *</label>
+        <input type="text" id="langNativeName" placeholder="e.g. English, हिन्दी">
+      </div>
+      <div class="form-group">
+        <label>Active</label>
+        <select id="langActive"><option value="1">Yes</option><option value="0">No</option></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('langModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLang()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin User Modal -->
+  <div class="modal-overlay" id="adminUserModal">
+    <div class="modal">
+      <h2 id="adminUserModalTitle">Add Admin User</h2>
+      <input type="hidden" id="adminUserId">
+      <div class="form-group">
+        <label>Username *</label>
+        <input type="text" id="adminUserUsername" placeholder="Username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Password <span id="pwdHint">(required)</span></label>
+        <input type="password" id="adminUserPassword" placeholder="Password" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" id="adminUserName" placeholder="Full Name">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="adminUserRole">
+          <option value="admin">Admin</option>
+          <option value="user">User (view only)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Active</label>
+        <select id="adminUserActive"><option value="1">Yes</option><option value="0">No</option></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('adminUserModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAdminUser()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authCreds = '';
+    let currentUser = null;
+    let languagesCache = [];
+
+    // ─── Auth ───
+
+    async function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errorEl = document.getElementById('loginError');
+
+      if (!username || !password) { errorEl.style.display = 'block'; errorEl.textContent = 'Please enter username and password'; return; }
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorEl.style.display = 'block';
+          errorEl.textContent = data.error || 'Login failed';
+          return;
+        }
+
+        currentUser = data.user;
+        authCreds = btoa(username + ':' + password);
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('currentUserName').textContent = currentUser.name;
+        document.getElementById('currentUserRole').textContent = currentUser.role;
+
+        // Hide admin-only nav if user role
+        if (currentUser.role !== 'admin') {
+          document.querySelector('[data-page="admin-users"]').style.display = 'none';
+        }
+
+        loadDashboard();
+      } catch (err) {
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Server error';
+      }
+    }
+
+    document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+    function logout() {
+      authCreds = '';
+      currentUser = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.getElementById('loginPassword').value = '';
+    }
+
+    function api(url, options = {}) {
+      return fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Basic ' + authCreds,
+          ...options.headers
+        }
+      });
+    }
+
+    function toast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast' + (isError ? ' error' : '');
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    // ─── Navigation ───
+
+    function showPage(page) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.getElementById('page-' + page).classList.remove('hidden');
+      document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+      document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+      switch (page) {
+        case 'dashboard': loadDashboard(); break;
+        case 'bot-flows': loadFlows(); break;
+        case 'languages': loadLanguages(); break;
+        case 'bot-users': loadBotUsers(); break;
+        case 'admin-users': loadAdminUsers(); break;
+        case 'messages': loadMessages(); break;
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // ─── Dashboard ───
+
+    async function loadDashboard() {
+      const res = await api('/api/admin/stats');
+      const data = await res.json();
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card"><div class="icon">👥</div><div class="value">${data.totalUsers}</div><div class="label">Bot Users</div></div>
+        <div class="stat-card"><div class="icon">💬</div><div class="value">${data.totalMessages}</div><div class="label">Messages</div></div>
+        <div class="stat-card"><div class="icon">🔀</div><div class="value">${data.totalFlows}</div><div class="label">Bot Flows</div></div>
+        <div class="stat-card"><div class="icon">🌐</div><div class="value">${data.totalLanguages}</div><div class="label">Languages</div></div>
+      `;
+    }
+
+    // ─── Bot Flows ───
+
+    async function loadFlows() {
+      const res = await api('/api/admin/bot-flows');
+      const flows = await res.json();
+      // Also cache languages for the flow modal
+      const lRes = await api('/api/admin/languages');
+      languagesCache = await lRes.json();
+
+      document.getElementById('flowsTable').innerHTML = flows.map(f => `
+        <tr>
+          <td>${f.id}</td>
+          <td><strong>${f.level}</strong></td>
+          <td>${f.step}</td>
+          <td><span class="badge badge-blue">${f.language_code}</span></td>
+          <td class="text-truncate" title="${escHtml(f.message_text)}">${escHtml(f.message_text)}</td>
+          <td><span class="badge badge-yellow">${f.message_type}</span></td>
+          <td>${f.options ? JSON.parse(typeof f.options === 'string' ? f.options : JSON.stringify(f.options)).length + ' items' : '-'}</td>
+          <td>${f.file_url ? '<a href="' + f.file_url + '" target="_blank" class="badge badge-green" style="text-decoration:none">📄 File</a>' : '-'}</td>
+          <td>${f.is_active ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-red">No</span>'}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="editFlow(${f.id})">Edit</button>
+            ${currentUser.role === 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteFlow(${f.id})">Del</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openFlowModal(data) {
+      document.getElementById('flowModalTitle').textContent = data ? 'Edit Bot Flow' : 'Add Bot Flow';
+      document.getElementById('flowId').value = data ? data.id : '';
+      document.getElementById('flowLevel').value = data ? data.level : '';
+      document.getElementById('flowStep').value = data ? data.step : 'start';
+      document.getElementById('flowMessage').value = data ? data.message_text : '';
+      document.getElementById('flowType').value = data ? data.message_type : 'text';
+      document.getElementById('flowNextLevel').value = data ? (data.next_level || '') : '';
+      document.getElementById('flowNextStep').value = data ? (data.next_step || '') : '';
+      document.getElementById('flowParentOption').value = data ? (data.parent_option || '') : '';
+      document.getElementById('flowActive').value = data ? (data.is_active ? '1' : '0') : '1';
+
+      // File upload
+      document.getElementById('flowFile').value = '';
+      document.getElementById('flowFileUrl').value = data ? (data.file_url || '') : '';
+      if (data && data.file_url) {
+        document.getElementById('currentFileDisplay').style.display = 'block';
+        document.getElementById('currentFileName').textContent = '📄 ' + data.file_url.split('/').pop();
+      } else {
+        document.getElementById('currentFileDisplay').style.display = 'none';
+        document.getElementById('currentFileName').textContent = '';
+      }
+
+      // Populate language dropdown
+      const langSelect = document.getElementById('flowLang');
+      langSelect.innerHTML = languagesCache.map(l =>
+        `<option value="${l.code}" ${data && data.language_code === l.code ? 'selected' : ''}>${l.name} (${l.code})</option>`
+      ).join('');
+
+      // Populate options
+      const optList = document.getElementById('optionsList');
+      optList.innerHTML = '';
+      if (data && data.options) {
+        const opts = typeof data.options === 'string' ? JSON.parse(data.options) : data.options;
+        opts.forEach(o => addOptionRow(o.id, o.title, o.description));
+      }
+
+      document.getElementById('flowModal').classList.add('active');
+    }
+
+    async function editFlow(id) {
+      const res = await api('/api/admin/bot-flows/' + id);
+      const data = await res.json();
+      openFlowModal(data);
+    }
+
+    function addOptionRow(id, title, desc) {
+      const div = document.createElement('div');
+      div.className = 'option-row';
+      div.innerHTML = `
+        <input type="text" placeholder="ID (e.g. opt_services)" value="${id || ''}">
+        <input type="text" placeholder="Title" value="${title || ''}">
+        <input type="text" placeholder="Description" value="${desc || ''}">
+        <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">✕</button>
+      `;
+      document.getElementById('optionsList').appendChild(div);
+    }
+
+    function removeFlowFile() {
+      document.getElementById('flowFileUrl').value = '';
+      document.getElementById('flowFile').value = '';
+      document.getElementById('currentFileDisplay').style.display = 'none';
+      document.getElementById('currentFileName').textContent = '';
+    }
+
+    async function saveFlow() {
+      const id = document.getElementById('flowId').value;
+      const optionRows = document.querySelectorAll('#optionsList .option-row');
+      const options = [];
+      optionRows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs[0].value && inputs[1].value) {
+          options.push({ id: inputs[0].value.trim(), title: inputs[1].value.trim(), description: inputs[2].value.trim() || undefined });
+        }
+      });
+
+      // Upload file if selected
+      let fileUrl = document.getElementById('flowFileUrl').value || null;
+      const fileInput = document.getElementById('flowFile');
+      if (fileInput.files.length > 0) {
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        try {
+          const uploadRes = await fetch('/api/admin/upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Basic ' + authCreds },
+            body: formData
+          });
+          const uploadData = await uploadRes.json();
+          if (!uploadRes.ok) {
+            return toast(uploadData.error || 'File upload failed', true);
+          }
+          fileUrl = uploadData.file_url;
+        } catch (uploadErr) {
+          return toast('File upload failed: ' + uploadErr.message, true);
+        }
+      }
+
+      const body = {
+        level: document.getElementById('flowLevel').value.trim(),
+        step: document.getElementById('flowStep').value.trim() || 'start',
+        language_code: document.getElementById('flowLang').value,
+        message_text: document.getElementById('flowMessage').value.trim(),
+        message_type: document.getElementById('flowType').value,
+        options: options.length > 0 ? options : null,
+        file_url: fileUrl,
+        next_level: document.getElementById('flowNextLevel').value.trim() || null,
+        next_step: document.getElementById('flowNextStep').value.trim() || null,
+        parent_option: document.getElementById('flowParentOption').value.trim() || null,
+        is_active: parseInt(document.getElementById('flowActive').value)
+      };
+
+      if (!body.level || !body.language_code || !body.message_text) {
+        return toast('Level, language, and message are required', true);
+      }
+
+      const url = id ? '/api/admin/bot-flows/' + id : '/api/admin/bot-flows';
+      const method = id ? 'PUT' : 'POST';
+      const res = await api(url, { method, body: JSON.stringify(body) });
+
+      if (res.ok) {
+        toast(id ? 'Flow updated!' : 'Flow created!');
+        closeModal('flowModal');
+        loadFlows();
+      } else {
+        const err = await res.json();
+        toast(err.error || 'Failed to save', true);
+      }
+    }
+
+    async function deleteFlow(id) {
+      if (!confirm('Delete this flow?')) return;
+      const res = await api('/api/admin/bot-flows/' + id, { method: 'DELETE' });
+      if (res.ok) { toast('Flow deleted'); loadFlows(); }
+      else { toast('Failed to delete', true); }
+    }
+
+    // ─── Languages ───
+
+    async function loadLanguages() {
+      const res = await api('/api/admin/languages');
+      const langs = await res.json();
+      languagesCache = langs;
+
+      document.getElementById('langsTable').innerHTML = langs.map(l => `
+        <tr>
+          <td>${l.id}</td>
+          <td><strong>${l.code}</strong></td>
+          <td>${l.name}</td>
+          <td>${l.native_name}</td>
+          <td>${l.is_active ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-red">No</span>'}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick='editLang(${JSON.stringify(l)})'>Edit</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openLangModal(data) {
+      document.getElementById('langModalTitle').textContent = data ? 'Edit Language' : 'Add Language';
+      document.getElementById('langId').value = data ? data.id : '';
+      document.getElementById('langCode').value = data ? data.code : '';
+      document.getElementById('langName').value = data ? data.name : '';
+      document.getElementById('langNativeName').value = data ? data.native_name : '';
+      document.getElementById('langActive').value = data ? (data.is_active ? '1' : '0') : '1';
+      document.getElementById('langModal').classList.add('active');
+    }
+
+    function editLang(data) { openLangModal(data); }
+
+    async function saveLang() {
+      const id = document.getElementById('langId').value;
+      const body = {
+        code: document.getElementById('langCode').value.trim(),
+        name: document.getElementById('langName').value.trim(),
+        native_name: document.getElementById('langNativeName').value.trim(),
+        is_active: parseInt(document.getElementById('langActive').value)
+      };
+
+      if (!body.code || !body.name || !body.native_name) {
+        return toast('All fields are required', true);
+      }
+
+      const url = id ? '/api/admin/languages/' + id : '/api/admin/languages';
+      const method = id ? 'PUT' : 'POST';
+      const res = await api(url, { method, body: JSON.stringify(body) });
+
+      if (res.ok) {
+        toast(id ? 'Language updated!' : 'Language added!');
+        closeModal('langModal');
+        loadLanguages();
+      } else {
+        const err = await res.json();
+        toast(err.error || 'Failed to save', true);
+      }
+    }
+
+    // ─── Bot Users ───
+
+    async function loadBotUsers() {
+      const res = await api('/api/admin/users');
+      const users = await res.json();
+
+      document.getElementById('botUsersTable').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.id}</td>
+          <td>${escHtml(u.phone)}</td>
+          <td>${u.language_code ? `<span class="badge badge-blue">${u.language_code}</span>` : '-'}</td>
+          <td><strong>${u.current_level}</strong></td>
+          <td>${u.current_step}</td>
+          <td>${new Date(u.created_at).toLocaleString()}</td>
+          <td>
+            ${currentUser.role === 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteBotUser(${u.id})">Delete</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function deleteBotUser(id) {
+      if (!confirm('Delete this user and all their messages?')) return;
+      const res = await api('/api/admin/users/' + id, { method: 'DELETE' });
+      if (res.ok) { toast('User deleted'); loadBotUsers(); }
+      else { toast('Failed to delete', true); }
+    }
+
+    // ─── Admin Users ───
+
+    async function loadAdminUsers() {
+      const res = await api('/api/admin/admin-users');
+      const users = await res.json();
+
+      document.getElementById('adminUsersTable').innerHTML = users.map(u => `
+        <tr>
+          <td>${u.id}</td>
+          <td><strong>${u.username}</strong></td>
+          <td>${u.name}</td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-green' : 'badge-blue'}">${u.role}</span></td>
+          <td>${u.is_active ? '<span class="badge badge-green">Yes</span>' : '<span class="badge badge-red">No</span>'}</td>
+          <td>${new Date(u.created_at).toLocaleString()}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick='editAdminUser(${JSON.stringify(u)})'>Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteAdminUser(${u.id})">Del</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openAdminUserModal(data) {
+      document.getElementById('adminUserModalTitle').textContent = data ? 'Edit Admin User' : 'Add Admin User';
+      document.getElementById('adminUserId').value = data ? data.id : '';
+      document.getElementById('adminUserUsername').value = data ? data.username : '';
+      document.getElementById('adminUserPassword').value = '';
+      document.getElementById('adminUserName').value = data ? data.name : '';
+      document.getElementById('adminUserRole').value = data ? data.role : 'user';
+      document.getElementById('adminUserActive').value = data ? (data.is_active ? '1' : '0') : '1';
+      document.getElementById('pwdHint').textContent = data ? '(leave blank to keep)' : '(required)';
+      document.getElementById('adminUserModal').classList.add('active');
+    }
+
+    function editAdminUser(data) { openAdminUserModal(data); }
+
+    async function saveAdminUser() {
+      const id = document.getElementById('adminUserId').value;
+      const body = {
+        username: document.getElementById('adminUserUsername').value.trim(),
+        name: document.getElementById('adminUserName').value.trim(),
+        role: document.getElementById('adminUserRole').value,
+        is_active: parseInt(document.getElementById('adminUserActive').value)
+      };
+      const pwd = document.getElementById('adminUserPassword').value;
+      if (pwd) body.password = pwd;
+
+      if (!body.username || !body.name) {
+        return toast('Username and name are required', true);
+      }
+      if (!id && !pwd) {
+        return toast('Password is required for new user', true);
+      }
+
+      const url = id ? '/api/admin/admin-users/' + id : '/api/admin/admin-users';
+      const method = id ? 'PUT' : 'POST';
+      const res = await api(url, { method, body: JSON.stringify(body) });
+
+      if (res.ok) {
+        toast(id ? 'User updated!' : 'User created!');
+        closeModal('adminUserModal');
+        loadAdminUsers();
+      } else {
+        const err = await res.json();
+        toast(err.error || 'Failed to save', true);
+      }
+    }
+
+    async function deleteAdminUser(id) {
+      if (!confirm('Delete this admin user?')) return;
+      const res = await api('/api/admin/admin-users/' + id, { method: 'DELETE' });
+      if (res.ok) { toast('User deleted'); loadAdminUsers(); }
+      else {
+        const err = await res.json();
+        toast(err.error || 'Failed to delete', true);
+      }
+    }
+
+    // ─── Messages ───
+
+    async function loadMessages() {
+      const res = await api('/api/admin/messages');
+      const msgs = await res.json();
+
+      document.getElementById('messagesTable').innerHTML = msgs.map(m => `
+        <tr>
+          <td>${m.id}</td>
+          <td>${escHtml(m.phone)}</td>
+          <td><span class="badge ${m.direction === 'incoming' ? 'badge-blue' : 'badge-green'}">${m.direction}</span></td>
+          <td class="text-truncate" title="${escHtml(m.content)}">${escHtml(m.content)}</td>
+          <td>${m.channel}</td>
+          <td>${new Date(m.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ─── Utils ───
+
+    function escHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

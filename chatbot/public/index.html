@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #e5ddd5;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 700px;
+      display: flex;
+      flex-direction: column;
+      background: #e5ddd5;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.15);
+    }
+
+    .chat-header {
+      background: #075e54;
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chat-header .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #25d366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .chat-header .info h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .chat-header .info p {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #e5ddd5 url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ccc6b8' fill-opacity='0.15'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      position: relative;
+    }
+
+    .message .time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: #dcf8c6;
+      border-top-right-radius: 2px;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+      background: #fff;
+      border-top-left-radius: 2px;
+    }
+
+    .message.bot .text {
+      white-space: pre-wrap;
+    }
+
+    .typing-indicator {
+      align-self: flex-start;
+      background: #fff;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border-top-left-radius: 2px;
+      display: none;
+    }
+
+    .typing-indicator span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #999;
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    .chat-input {
+      display: flex;
+      padding: 10px;
+      background: #f0f0f0;
+      gap: 8px;
+    }
+
+    .chat-input input[type="text"] {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+      background: #fff;
+    }
+
+    .chat-input button {
+      width: 44px;
+      height: 44px;
+      border: none;
+      border-radius: 50%;
+      background: #075e54;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .chat-input button:hover { background: #128c7e; }
+    .chat-input button:disabled { background: #999; cursor: not-allowed; }
+
+    .chat-input .upload-btn {
+      background: #25d366;
+      font-size: 18px;
+    }
+    .chat-input .upload-btn:hover { background: #128c7e; }
+    .chat-input input[type="file"] { display: none; }
+
+    .welcome {
+      text-align: center;
+      padding: 24px;
+      color: #888;
+      font-size: 13px;
+    }
+
+    .options-container {
+      align-self: flex-start;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-width: 85%;
+      padding: 4px 0;
+    }
+
+    .option-btn {
+      background: #fff;
+      border: 1.5px solid #075e54;
+      color: #075e54;
+      padding: 8px 14px;
+      border-radius: 18px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .option-btn:hover {
+      background: #075e54;
+      color: #fff;
+    }
+
+    .option-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .file-card {
+      align-self: flex-start;
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px 16px;
+      max-width: 80%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .file-card .file-icon { font-size: 28px; margin-bottom: 6px; }
+    .file-card .file-name { font-size: 13px; color: #333; margin-bottom: 8px; word-break: break-all; }
+    .file-card a {
+      display: inline-block;
+      padding: 6px 16px;
+      background: #075e54;
+      color: #fff;
+      border-radius: 16px;
+      font-size: 12px;
+      text-decoration: none;
+      margin-right: 6px;
+    }
+    .file-card a:hover { background: #128c7e; }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="avatar">🤖</div>
+      <div class="info">
+        <h2>Chatbot</h2>
+        <p>Online</p>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="messages">
+      <div class="welcome">Send a message to start chatting</div>
+    </div>
+
+    <div class="typing-indicator" id="typing">
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="chat-input">
+      <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+      <button class="upload-btn" id="uploadBtn" title="Upload file" onclick="document.getElementById('fileInput').click()">📎</button>
+      <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+      <button id="sendBtn" title="Send">&#10148;</button>
+    </div>
+  </div>
+
+  <script>
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const typingEl = document.getElementById('typing');
+
+    // Generate a unique session ID for this browser tab
+    const sessionId = 'web-' + crypto.randomUUID();
+
+    function getTime() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addMessage(text, sender) {
+      // Remove welcome message if present
+      const welcome = messagesEl.querySelector('.welcome');
+      if (welcome) welcome.remove();
+
+      const div = document.createElement('div');
+      div.className = 'message ' + sender;
+      div.innerHTML = '<div class="text"></div><div class="time">' + getTime() + '</div>';
+      div.querySelector('.text').textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addOptions(options) {
+      if (!options || options.length === 0) return;
+
+      // Disable any previous option buttons
+      messagesEl.querySelectorAll('.option-btn:not(:disabled)').forEach(btn => {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+      });
+
+      const container = document.createElement('div');
+      container.className = 'options-container';
+
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.textContent = opt.title;
+        if (opt.description) btn.title = opt.description;
+        btn.addEventListener('click', () => {
+          // Disable all buttons in this group
+          container.querySelectorAll('.option-btn').forEach(b => {
+            b.disabled = true;
+            b.style.opacity = '0.5';
+          });
+          btn.style.background = '#075e54';
+          btn.style.color = '#fff';
+          btn.style.opacity = '1';
+          sendOption(opt.id, opt.title);
+        });
+        container.appendChild(btn);
+      });
+
+      messagesEl.appendChild(container);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addFile(fileUrl) {
+      if (!fileUrl) return;
+      const welcome = messagesEl.querySelector('.welcome');
+      if (welcome) welcome.remove();
+
+      const filename = fileUrl.split('/').pop();
+      const div = document.createElement('div');
+      div.className = 'file-card';
+      div.innerHTML = `
+        <div class="file-icon">📄</div>
+        <div class="file-name">${filename}</div>
+        <a href="${fileUrl}" target="_blank" download>⬇ Download</a>
+        <a href="${fileUrl}" target="_blank">👁 View</a>
+      `;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function sendOption(optionId, title) {
+      addMessage(title, 'user');
+
+      sendBtn.disabled = true;
+      typingEl.style.display = 'block';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ optionId, message: title, sessionId })
+        });
+
+        const data = await res.json();
+        if (data.replies) {
+          data.replies.forEach(reply => addMessage(reply, 'bot'));
+        }
+        if (data.file_url) {
+          addFile(data.file_url);
+        }
+        if (data.options) {
+          addOptions(data.options);
+        }
+        if (data.error) {
+          addMessage('Error: ' + data.error, 'bot');
+        }
+      } catch (err) {
+        addMessage('Failed to connect to server.', 'bot');
+      } finally {
+        typingEl.style.display = 'none';
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    async function sendMessage() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      inputEl.value = '';
+      addMessage(text, 'user');
+
+      sendBtn.disabled = true;
+      typingEl.style.display = 'block';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, sessionId })
+        });
+
+        const data = await res.json();
+
+        if (data.replies) {
+          data.replies.forEach(reply => addMessage(reply, 'bot'));
+        }
+        if (data.file_url) {
+          addFile(data.file_url);
+        }
+        if (data.options) {
+          addOptions(data.options);
+        }
+        if (data.error) {
+          addMessage('Error: ' + data.error, 'bot');
+        }
+      } catch (err) {
+        addMessage('Failed to connect to server.', 'bot');
+      } finally {
+        typingEl.style.display = 'none';
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    inputEl.focus();
+  </script>
+</body>
+</html>
