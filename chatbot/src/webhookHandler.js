@@ -337,7 +337,7 @@ async function sendFlowResponse(phone, flow, userId, conversationId, skipIntro =
     const filename = flow.file_url.split('/').pop();
     try {
       //await sendWhatsAppDocument(phone, fullUrl, filename, flow.message_text);
-      await sendWhatsAppDocument(phone, fullUrl, filename, '');
+       await new Promise((resolve) => setTimeout(resolve, Number(process.env.FILE_DELAY_MS) || 4000));
     } catch (docErr) {
       console.error('Failed to send document:', docErr.message);
       //await sendWhatsAppMessage(phone, flow.message_text + '\n\n📄 Download: ' + fullUrl);
