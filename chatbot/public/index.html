@@ -231,6 +231,28 @@
       margin-right: 6px;
     }
     .file-card a:hover { background: #128c7e; }
+
+/* .react-btn {
+  position: absolute; right: -34px; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 26px; border: none; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  cursor: pointer; font-size: 14px; display: none; padding: 0;
+} 
+.message.bot:hover .react-btn { display: block; }
+.react-picker {
+  position: absolute; left: 0; bottom: 100%; margin-bottom: 6px; z-index: 20;
+  background: #fff; border-radius: 24px; padding: 6px 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25); display: flex; gap: 4px; flex-wrap: wrap;
+  max-width: 260px;
+}
+.react-picker span { font-size: 22px; cursor: pointer; padding: 2px 3px; border-radius: 8px; }
+.react-picker span:hover { background: #eee; }
+.reaction-chip {
+  position: absolute; left: 10px; bottom: -12px; background: #fff;
+  border-radius: 12px; padding: 0 6px; font-size: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.message.bot.has-reaction { margin-bottom: 14px; } */
   </style>
 </head>
 <body>
@@ -272,6 +294,54 @@
       return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    //const QUICK_REACTIONS = ['👍','❤️','😂','😮','😢','🙏'];
+    //const MORE_REACTIONS = ['😀','😊','😍','🤝','👏','🎉','🔥','✅','💯','😡','🤔','👎','😅','🥰','😎','🙌'];
+
+// function addReactionUI(msgEl) {
+//   const btn = document.createElement('button');
+//   btn.className = 'react-btn';
+//   btn.type = 'button';
+//   btn.textContent = '😊';
+//   msgEl.appendChild(btn);
+
+//   function setReaction(emoji) {
+//     const old = msgEl.querySelector('.reaction-chip');
+//     if (old) old.remove();
+//     if (old && old.textContent === emoji) {      // same emoji again = remove reaction
+//       msgEl.classList.remove('has-reaction');
+//       return;
+//     }
+//     const chip = document.createElement('div');
+//     chip.className = 'reaction-chip';
+//     chip.textContent = emoji;
+//     msgEl.appendChild(chip);
+//     msgEl.classList.add('has-reaction');
+//   }
+
+//   btn.addEventListener('click', (e) => {
+//     e.stopPropagation();
+//     const existing = msgEl.querySelector('.react-picker');
+//     if (existing) { existing.remove(); return; }
+//     document.querySelectorAll('.react-picker').forEach(p => p.remove());
+
+//     const picker = document.createElement('div');
+//     picker.className = 'react-picker';
+//     const build = (list) => list.forEach(em => {
+//       const s = document.createElement('span');
+//       s.textContent = em;
+//       s.addEventListener('click', (ev) => { ev.stopPropagation(); setReaction(em); picker.remove(); });
+//       picker.appendChild(s);
+//     });
+//     build(QUICK_REACTIONS);
+//     const plus = document.createElement('span');
+//     plus.textContent = '＋';
+//     plus.addEventListener('click', (ev) => { ev.stopPropagation(); plus.remove(); build(MORE_REACTIONS); });
+//     picker.appendChild(plus);
+//     msgEl.appendChild(picker);
+//   });
+// }
+// document.addEventListener('click', () => document.querySelectorAll('.react-picker').forEach(p => p.remove()));
+
     function addMessage(text, sender) {
       // Remove welcome message if present
       const welcome = messagesEl.querySelector('.welcome');
@@ -282,6 +352,7 @@
       div.innerHTML = '<div class="text"></div><div class="time">' + getTime() + '</div>';
       div.querySelector('.text').textContent = text;
       messagesEl.appendChild(div);
+
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
@@ -337,7 +408,19 @@
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
-
+        function renderBotResponse(data) {
+      const replies = data.replies || [];
+      if (data.file_url && replies.length > 1) {
+        replies.slice(0, -1).forEach(r => addMessage(r, 'bot'));
+        addFile(data.file_url);
+        addMessage(replies[replies.length - 1], 'bot');
+      } else {
+        replies.forEach(r => addMessage(r, 'bot'));
+        if (data.file_url) addFile(data.file_url);
+      }
+      if (data.options) addOptions(data.options);
+      if (data.error) addMessage('Error: ' + data.error, 'bot');
+    }
     async function sendOption(optionId, title) {
       addMessage(title, 'user');
 
@@ -353,18 +436,19 @@
         });
 
         const data = await res.json();
-        if (data.replies) {
-          data.replies.forEach(reply => addMessage(reply, 'bot'));
-        }
-        if (data.file_url) {
-          addFile(data.file_url);
-        }
-        if (data.options) {
-          addOptions(data.options);
-        }
-        if (data.error) {
-          addMessage('Error: ' + data.error, 'bot');
-        }
+        // if (data.replies) {
+        //   data.replies.forEach(reply => addMessage(reply, 'bot'));
+        // }
+        // if (data.file_url) {
+        //   addFile(data.file_url);
+        // }
+        // if (data.options) {
+        //   addOptions(data.options);
+        // }
+        // if (data.error) {
+        //   addMessage('Error: ' + data.error, 'bot');
+        // }
+        renderBotResponse(data);
       } catch (err) {
         addMessage('Failed to connect to server.', 'bot');
       } finally {
@@ -394,18 +478,19 @@
 
         const data = await res.json();
 
-        if (data.replies) {
-          data.replies.forEach(reply => addMessage(reply, 'bot'));
-        }
-        if (data.file_url) {
-          addFile(data.file_url);
-        }
-        if (data.options) {
-          addOptions(data.options);
-        }
-        if (data.error) {
-          addMessage('Error: ' + data.error, 'bot');
-        }
+        // if (data.replies) {
+        //   data.replies.forEach(reply => addMessage(reply, 'bot'));
+        // }
+        // if (data.file_url) {
+        //   addFile(data.file_url);
+        // }
+        // if (data.options) {
+        //   addOptions(data.options);
+        // }
+        // if (data.error) {
+        //   addMessage('Error: ' + data.error, 'bot');
+        // }
+        renderBotResponse(data);
       } catch (err) {
         addMessage('Failed to connect to server.', 'bot');
       } finally {

@@ -79,6 +79,38 @@ async function getActiveLanguages() {
 
 // ─── Bot Flow ───
 
+// async function getBotFlow(level, step, languageCode, parentOption) {
+//   const db = getPool();
+//   let query = 'SELECT * FROM bot_flows WHERE level = ? AND step = ? AND language_code = ? AND is_active = 1';
+//   const params = [level, step, languageCode];
+
+//   if (parentOption) {
+//     query += ' AND parent_option = ?';
+//     params.push(parentOption);
+//   } else {
+//     query += ' AND parent_option IS NULL';
+//   }
+
+//   const [rows] = await db.execute(query, params);
+//   return rows.length > 0 ? rows[0] : null;
+// }
+async function buildLanguageOptions() {
+  const langs = await getActiveLanguages();
+  return langs.map((l) => ({
+    id: `lang_${l.code}`,
+    title: l.native_name || l.name,
+    description: `Continue in ${l.name}`,
+  }));
+}
+
+async function resolveLanguageSelection(optionId) {
+  if (!optionId || !optionId.startsWith('lang_')) return null;
+  const code = optionId.slice(5);
+  const langs = await getActiveLanguages();
+  const match = langs.find((l) => l.code === code);
+  return match ? match.code : null;
+}
+
 async function getBotFlow(level, step, languageCode, parentOption) {
   const db = getPool();
   let query = 'SELECT * FROM bot_flows WHERE level = ? AND step = ? AND language_code = ? AND is_active = 1';
@@ -92,7 +124,17 @@ async function getBotFlow(level, step, languageCode, parentOption) {
   }
 
   const [rows] = await db.execute(query, params);
-  return rows.length > 0 ? rows[0] : null;
+  const flow = rows.length > 0 ? rows[0] : null;
+
+  // Welcome screen: language list languages table se aayegi
+  if (flow && level === 'welcome' && step === 'start' && !parentOption) {
+    const langOptions = await buildLanguageOptions();
+    if (langOptions.length > 0) {
+      flow.options = JSON.stringify(langOptions);
+    }
+  }
+
+  return flow;
 }
 
 // ─── Messages ───
@@ -125,6 +167,50 @@ async function getActiveConversation(userId) {
   return rows.length > 0 ? rows[0] : null;
 }
 
+// Har incoming message par: activity time update + session active
+async function touchUser(phone) {
+  const db = getPool();
+  await db.execute(
+    'UPDATE users SET last_activity_at = NOW(), session_active = 1 WHERE phone = ?',
+    [phone]
+  );
+}
+
+// Wo WhatsApp users jinka active session minutes se zyada idle hai
+async function getExpiredSessions(minutes) {
+  const db = getPool();
+  const m = parseInt(minutes, 10) || 5;
+  const [rows] = await db.query(
+    `SELECT id, phone, language_code FROM users
+     WHERE session_active = 1
+       AND last_activity_at IS NOT NULL
+       AND last_activity_at < (NOW() - INTERVAL ${m} MINUTE)
+       AND phone REGEXP '^[0-9]{10,15}$'`
+  );
+  return rows;
+}
+
+// Session expire karo. true tabhi milega jab sach me expire hua
+async function expireSession(userId, minutes) {
+  const db = getPool();
+  const m = parseInt(minutes, 10) || 5;
+  const [result] = await db.query(
+    `UPDATE users
+     SET session_active = 0, language_code = NULL, current_level = 'welcome', current_step = 'start'
+     WHERE id = ? AND session_active = 1
+       AND last_activity_at < (NOW() - INTERVAL ${m} MINUTE)`,
+    [userId]
+  );
+  if (result.affectedRows === 1) {
+    await db.execute(
+      "UPDATE conversations SET status = 'abandoned' WHERE user_id = ? AND status = 'active'",
+      [userId]
+    );
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   initDB,
   getPool,
@@ -133,8 +219,12 @@ module.exports = {
   updateUserState,
   resetUserToWelcome,
   getActiveLanguages,
+  resolveLanguageSelection,
   getBotFlow,
   logMessageToDB,
   createConversation,
   getActiveConversation,
+  touchUser,
+  getExpiredSessions,
+  expireSession,
 };

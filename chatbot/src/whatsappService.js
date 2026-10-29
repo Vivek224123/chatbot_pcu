@@ -48,6 +48,7 @@ async function sendWhatsAppInteractiveMessage(to, interactivePayload) {
         'Content-Type': 'application/json',
       },
     });
+    console.log(`Interactive sent to ${to}`, JSON.stringify(response.data.messages));
     return response.data;
   } catch (error) {
     logError('sendWhatsAppInteractiveMessage', error);

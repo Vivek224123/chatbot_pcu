@@ -1,0 +1,16 @@
+node_modules/
+chatbot/node_modules/
+.env
+.env.*
+!.env.example
+chatbot/.env
+chatbot/.env.*
+!chatbot/.env.example
+chatbot/credentials/
+chatbot/logs/
+chatbot/uploads/*
+!chatbot/uploads/.gitkeep
+
+chatbot/credentials/
+
+chatbot/uploads/

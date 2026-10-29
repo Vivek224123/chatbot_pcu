@@ -3,24 +3,26 @@ const { detectIntent } = require('./dialogflowService');
 const { logMessage } = require('./logger');
 const {
   getOrCreateUser,
+  touchUser,
   updateUserLanguage,
   updateUserState,
   resetUserToWelcome,
   getBotFlow,
+  resolveLanguageSelection,
   logMessageToDB,
   createConversation,
   getActiveConversation,
 } = require('./dbService');
 
 // Map language selection IDs to language codes
-const LANGUAGE_MAP = {
-  lang_en: 'en',
-  lang_hi: 'hi',
-  lang_ta: 'ta',
-  lang_te: 'te',
-  lang_kn: 'kn',
-  lang_mr: 'mr',
-};
+// const LANGUAGE_MAP = {
+//   lang_en: 'en',
+//   lang_hi: 'hi',
+//   lang_ta: 'ta',
+//   lang_te: 'te',
+//   lang_kn: 'kn',
+//   lang_mr: 'mr',
+// };
 
 // Map option IDs to levels
 const OPTION_LEVEL_MAP = {
@@ -33,6 +35,7 @@ const OPTION_LEVEL_MAP = {
   opt_info_help: 'info_help',
   opt_others: 'others',
   opt_language: 'welcome',
+  opt_imp_links: 'imp_links',
   // Driving Licence sub-options
   dl_learner: 'dl_learner',
   dl_permanent: 'dl_permanent',
@@ -43,6 +46,29 @@ const OPTION_LEVEL_MAP = {
   dl_name_correction: 'dl_name_correction',
   dl_questions: 'dl_questions',
   dl_download_form: 'dl_download_form',
+  //vahan sub option
+  veh_register: 'veh_register', veh_transfer: 'veh_transfer', veh_noc: 'veh_noc',
+  //challan 
+   ch_check: 'ch_check', ch_pay: 'ch_pay', ch_history: 'ch_history',
+  //payment
+  pm_apply: 'pm_apply', pm_renew: 'pm_renew', pm_status: 'pm_status',
+  //faceless
+  fl_apply: 'fl_apply', fl_status: 'fl_status', fl_docs: 'fl_docs',
+  //imp links
+  imp_website: 'imp_website', imp_office: 'imp_office', imp_services: 'imp_services',
+  imp_back: 'main_menu',
+  ih_faq: 'ih_faq', ih_rto: 'ih_rto', ih_docs: 'ih_docs',
+  //others
+  ot_feedback: 'ot_feedback', ot_complaint: 'ot_complaint', ot_contact: 'ot_contact',
+  //privious menu
+  dl_prev: 'driving_licence',
+  veh_prev: 'vehicle',
+  ch_prev: 'challan',
+  pm_prev: 'permit',
+  fl_prev: 'faceless',
+  ih_prev: 'info_help',
+  imp_back_prev: 'imp_links',
+  ot_prev: 'others',
   // Back buttons
   dl_back: 'main_menu',
   veh_back: 'main_menu',
@@ -51,12 +77,44 @@ const OPTION_LEVEL_MAP = {
   fl_back: 'main_menu',
   ih_back: 'main_menu',
   ot_back: 'main_menu',
+  imp_back: 'main_menu',
   // Change language from Others sub-menu
   ot_language: 'welcome',
 };
 
+// async function handleWebhook(req, res) {
+//   try { 
+//     console.log('Received webhook event');
+//     const { body } = req;
+
+//     // Acknowledge receipt immediately
+//     res.sendStatus(200);
+
+//     if (!body.object || !body.entry) return;
+
+//     for (const entry of body.entry) {
+//       const changes = entry.changes;
+//       if (!changes) continue;
+
+//       for (const change of changes) {
+//         const value = change.value;
+//         if (!value || !value.messages) continue;    
+
+//         for (const message of value.messages) {
+//           await processMessage(message);
+//         }
+//       }
+//     }
+//   } catch (error) {
+//     console.error('Error handling webhook:', error);
+//     if (!res.headersSent) {
+//       res.sendStatus(500);
+//     }
+//   }
+// }
+
 async function handleWebhook(req, res) {
-  try { 
+  try {
     console.log('Received webhook event');
     const { body } = req;
 
@@ -71,7 +129,15 @@ async function handleWebhook(req, res) {
 
       for (const change of changes) {
         const value = change.value;
-        if (!value || !value.messages) continue;    
+
+        // Delivery status (sent / delivered / read / failed)
+        if (value && value.statuses) {
+          for (const s of value.statuses) {
+            console.log('STATUS:', s.status, s.recipient_id, s.errors ? JSON.stringify(s.errors) : '');
+          }
+        }
+
+        if (!value || !value.messages) continue;
 
         for (const message of value.messages) {
           await processMessage(message);
@@ -88,6 +154,10 @@ async function handleWebhook(req, res) {
 
 async function processMessage(message) {
   console.log(`Processing message of type: ${message.type}`);
+   if (message.type === 'reaction') {
+    console.log(`Reaction from ${message.from}: ${message.reaction && message.reaction.emoji}`);
+    return;
+  }
   const senderPhone = message.from;
   let userText = '';
   let selectedId = '';
@@ -124,7 +194,7 @@ async function processMessage(message) {
   try {
     // Get or create user in DB
     const user = await getOrCreateUser(senderPhone);
-
+    await touchUser(senderPhone);
     // Log incoming message to DB
     let conversation = await getActiveConversation(user.id);
     if (!conversation) {
@@ -136,8 +206,10 @@ async function processMessage(message) {
     // ── STEP 1: Language selection (welcome level) ──
     if (user.current_level === 'welcome') {
       // Check if user selected a language
-      if (selectedId && LANGUAGE_MAP[selectedId]) {
-        const langCode = LANGUAGE_MAP[selectedId];
+      // if (selectedId && LANGUAGE_MAP[selectedId]) {
+      //   const langCode = LANGUAGE_MAP[selectedId];
+      const langCode = await resolveLanguageSelection(selectedId);
+      if (langCode) {
         await updateUserLanguage(senderPhone, langCode);
         console.log(`User ${senderPhone} selected language: ${langCode}`);
 
@@ -164,7 +236,7 @@ async function processMessage(message) {
     if (selectedId && OPTION_LEVEL_MAP[selectedId]) {
       const nextLevel = OPTION_LEVEL_MAP[selectedId];
       await updateUserState(senderPhone, nextLevel, 'start');
-      await sendBotFlowMessage(senderPhone, nextLevel, 'start', userLang, user.id, conversation.id);
+      await sendBotFlowMessage(senderPhone, nextLevel, 'start', userLang, user.id, conversation.id, nextLevel === 'main_menu');
       return;
     }
 
@@ -218,7 +290,7 @@ async function processMessage(message) {
   }
 }
 
-async function sendBotFlowMessage(phone, level, step, langCode, userId, conversationId) {
+async function sendBotFlowMessage(phone, level, step, langCode, userId, conversationId, skipIntro = false) {
   let flow = await getBotFlow(level, step, langCode, null);
 
   // Fallback to English if no flow found for selected language
@@ -232,13 +304,31 @@ async function sendBotFlowMessage(phone, level, step, langCode, userId, conversa
     return;
   }
 
-  await sendFlowResponse(phone, flow, userId, conversationId);
+  await sendFlowResponse(phone, flow, userId, conversationId, skipIntro);
   await updateUserState(phone, level, step);
 }
 
-async function sendFlowResponse(phone, flow, userId, conversationId) {
+async function sendFlowResponse(phone, flow, userId, conversationId, skipIntro = false) {
   logMessage('whatsapp', phone, 'outgoing', flow.message_text);
   await logMessageToDB(userId, conversationId, 'outgoing', flow.message_text, flow.message_type, 'whatsapp');
+    const parts = String(flow.message_text || '')
+    .split(/\s+---\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // if (parts.length > 1) {
+  //   for (const p of parts.slice(0, -1)) {
+  //     await sendWhatsAppMessage(phone, p);
+  //   }
+  //   flow = { ...flow, message_text: parts[parts.length - 1] };
+  // }
+  if (parts.length > 1) {
+    if (!skipIntro) {
+      for (const p of parts.slice(0, -1)) {
+        await sendWhatsAppMessage(phone, p);
+      }
+    }
+    flow = { ...flow, message_text: parts[parts.length - 1] };
+  }
 
   // Send attached document/PDF if present
   if (flow.file_url) {
@@ -246,10 +336,12 @@ async function sendFlowResponse(phone, flow, userId, conversationId) {
     const fullUrl = flow.file_url.startsWith('http') ? flow.file_url : baseUrl + flow.file_url;
     const filename = flow.file_url.split('/').pop();
     try {
-      await sendWhatsAppDocument(phone, fullUrl, filename, flow.message_text);
+      //await sendWhatsAppDocument(phone, fullUrl, filename, flow.message_text);
+      await sendWhatsAppDocument(phone, fullUrl, filename, '');
     } catch (docErr) {
       console.error('Failed to send document:', docErr.message);
-      await sendWhatsAppMessage(phone, flow.message_text + '\n\n📄 Download: ' + fullUrl);
+      //await sendWhatsAppMessage(phone, flow.message_text + '\n\n📄 Download: ' + fullUrl);
+      await sendWhatsAppMessage(phone, '📄 Download: ' + fullUrl);
     }
   }
 
@@ -259,7 +351,7 @@ async function sendFlowResponse(phone, flow, userId, conversationId) {
       type: 'list',
       body: { text: flow.message_text },
       action: {
-        button: 'Choose Option',
+        button: 'view menu',
         sections: [
           {
             title: 'Options',
