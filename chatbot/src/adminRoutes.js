@@ -4,13 +4,27 @@ const path = require('path');
 const multer = require('multer');
 const { getPool } = require('./dbService');
 
+
 const router = express.Router();
 
 // ─── File Upload Setup ───
+//new
+function cleanFileName(name) {
+  let n = name;
+  // multer can hand UTF-8 names over as latin1 text; fix it only when needed
+  if (![...n].some((ch) => ch.charCodeAt(0) > 255)) {
+    const fixed = Buffer.from(n, 'latin1').toString('utf8');
+    if (!fixed.includes('\uFFFD')) n = fixed;
+  }
+  return n.replace(/[^\p{L}\p{M}\p{N}.\-_ ()]/gu, '_').replace(/\s+/g, ' ').trim();
+}
+
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '..', 'uploads'),
   filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        console.log('UPLOAD:', JSON.stringify(file.originalname), '->', uniqueName);
+    //const uniqueName = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const uniqueName = Date.now() + '-' + cleanFileName(file.originalname);
     cb(null, uniqueName);
   }
 });
@@ -93,7 +107,8 @@ router.post('/upload', authMiddleware, adminOnly, (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     const fileUrl = '/uploads/' + req.file.filename;
-    res.json({ success: true, file_url: fileUrl, filename: req.file.originalname });
+    //res.json({ success: true, file_url: fileUrl, filename: req.file.originalname });
+    res.json({ success: true, file_url: fileUrl, filename: cleanFileName(req.file.originalname) });
   });
 });
 

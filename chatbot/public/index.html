@@ -396,18 +396,36 @@
       const welcome = messagesEl.querySelector('.welcome');
       if (welcome) welcome.remove();
 
-      const filename = fileUrl.split('/').pop();
-      const div = document.createElement('div');
-      div.className = 'file-card';
-      div.innerHTML = `
-        <div class="file-icon">📄</div>
-        <div class="file-name">${filename}</div>
-        <a href="${fileUrl}" target="_blank" download>⬇ Download</a>
-        <a href="${fileUrl}" target="_blank">👁 View</a>
-      `;
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
+      // const filename = fileUrl.split('/').pop();
+      // const div = document.createElement('div');
+      // div.className = 'file-card';
+      // div.innerHTML = `
+      //   <div class="file-icon">📄</div>
+      //   <div class="file-name">${filename}</div>
+      //   <a href="${fileUrl}" target="_blank" download>⬇ Download</a>
+      //   <a href="${fileUrl}" target="_blank">👁 View</a>
+      // `;
+      //new
+        let filename = fileUrl.split('/').pop();
+        try { filename = decodeURIComponent(filename); } catch (e) {}
+        filename = filename.replace(/^\d+-/, '');
+
+        const div = document.createElement('div');
+        div.className = 'file-card';
+        div.innerHTML = `
+          <div class="file-icon">📄</div>
+          <div class="file-name"></div>
+          <a class="dl" target="_blank">⬇ Download</a>
+          <a class="vw" target="_blank">👁 View</a>
+        `;
+        div.querySelector('.file-name').textContent = filename;
+        const dl = div.querySelector('.dl');
+        dl.href = encodeURI(fileUrl);
+        dl.setAttribute('download', filename);
+        div.querySelector('.vw').href = encodeURI(fileUrl);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
         function renderBotResponse(data) {
       const replies = data.replies || [];
       if (data.file_url && replies.length > 1) {

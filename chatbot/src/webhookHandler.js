@@ -333,8 +333,12 @@ async function sendFlowResponse(phone, flow, userId, conversationId, skipIntro =
   // Send attached document/PDF if present
   if (flow.file_url) {
     const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    const fullUrl = flow.file_url.startsWith('http') ? flow.file_url : baseUrl + flow.file_url;
-    const filename = flow.file_url.split('/').pop();
+    // const fullUrl = flow.file_url.startsWith('http') ? flow.file_url : baseUrl + flow.file_url;
+    // const filename = flow.file_url.split('/').pop();
+    const fullUrl = encodeURI(flow.file_url.startsWith('http') ? flow.file_url : baseUrl + flow.file_url);
+    let filename = flow.file_url.split('/').pop();
+    try { filename = decodeURIComponent(filename); } catch (e) {}
+    filename = filename.replace(/^\d+-/, '');
     try {
       //await sendWhatsAppDocument(phone, fullUrl, filename, flow.message_text);
        await new Promise((resolve) => setTimeout(resolve, Number(process.env.FILE_DELAY_MS) || 4000));

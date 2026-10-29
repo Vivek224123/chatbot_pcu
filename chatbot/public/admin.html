@@ -597,7 +597,10 @@
       document.getElementById('flowFileUrl').value = data ? (data.file_url || '') : '';
       if (data && data.file_url) {
         document.getElementById('currentFileDisplay').style.display = 'block';
-        document.getElementById('currentFileName').textContent = '📄 ' + data.file_url.split('/').pop();
+        // document.getElementById('currentFileName').textContent = '📄 ' + data.file_url.split('/').pop();
+        let shownName = data.file_url.split('/').pop();
+        try { shownName = decodeURIComponent(shownName); } catch (e) {}
+        document.getElementById('currentFileName').textContent = '📄 ' + shownName.replace(/^\d+-/, '');
       } else {
         document.getElementById('currentFileDisplay').style.display = 'none';
         document.getElementById('currentFileName').textContent = '';
